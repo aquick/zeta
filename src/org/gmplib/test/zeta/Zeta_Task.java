@@ -494,19 +494,38 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     }
 
     // Compute an estimate of N(T) from Backlund
-    private static void computeNumberOfZeroes(mpfr_t nt, mpfr_t error, mpfr_t t, boolean lb)
+    private static void computeNumberOfZeroes(mpfr_t nt, mpfr_t error, mpfr_t t)
         throws MPFRException
     {
-	if (lb && gramBaseIndex <= 126) {
-	    MPFR.mpfr_set_si(nt, gramBaseIndex + 1, mpfr_rnd_t.MPFR_RNDN);
+	// hard-code the first few estimates
+	if (MPFR.mpfr_cmp_d(t, 14.134725142) < 0) {	    
+	    MPFR.mpfr_set_si(nt, 0, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_set_si(error, 0, mpfr_rnd_t.MPFR_RNDN);
+	    return;
+	} else if (MPFR.mpfr_cmp_d(t, 21.022039639) < 0) {	    
+	    MPFR.mpfr_set_si(nt, 1, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_set_si(error, 0, mpfr_rnd_t.MPFR_RNDN);
+	    return;
+	} else if (MPFR.mpfr_cmp_d(t, 25.010857580) < 0) {	    
+	    MPFR.mpfr_set_si(nt, 2, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_set_si(error, 0, mpfr_rnd_t.MPFR_RNDN);
+	    return;
+	}
+	// find the largest Gram point less than the bound and, if the index is 126 or less,
+	// use the well known property of Gram's Law
+	int i = 0;
+	while (i < numGramPoints) {
+	    if (MPFR.mpfr_cmp(gramPoints[i], t) >= 0) {
+		break;
+	    }
+	    i++;
+	}
+	if (gramBaseIndex + i <= 126) {
+	    MPFR.mpfr_set_si(nt, gramBaseIndex + i, mpfr_rnd_t.MPFR_RNDN);
 	    MPFR.mpfr_set_si(error, 1, mpfr_rnd_t.MPFR_RNDN);
 	    return;
 	}
-	if (!lb && gramBaseIndex + numGramPoints - 1 <= 126) {
-	    MPFR.mpfr_set_si(nt, gramBaseIndex + numGramPoints, mpfr_rnd_t.MPFR_RNDN);
-	    MPFR.mpfr_set_si(error, 1, mpfr_rnd_t.MPFR_RNDN);
-	    return;
-	}
+	// otherwise use Backlund's estimate
 	MPFR.mpfr_set(v,  t, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_div_ui(v, v, 2, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_div(v, v, pi, mpfr_rnd_t.MPFR_RNDN);
@@ -603,20 +622,34 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             initCoefficients(nterms);
             result.append("using 2*" + nterms + " terms in zeta sums\n");
             
-            computeNumberOfZeroes(nzeroes, error, x, false);
-            result.append("there are approximately ");
-            appendMPFRvalue(this.result, nzeroes, 3);
-            result.append(" zeroes (with error ");
-            appendMPFRvalue(this.result, error, 3);
-            result.append(") less than " + this.upperBound + "\n");
+            computeNumberOfZeroes(nzeroes, error, x);
+            if (MPFR.mpfr_cmp_si(error, 0) == 0) {
+                result.append("there are ");
+                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(" zeroes");        	
+            } else {
+                result.append("there are approximately ");
+                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(" zeroes (with error ");
+                appendMPFRvalue(this.result, error, 3);
+                result.append(")");
+            }
+            result.append(" less than " + this.upperBound + "\n");
             
             MPFR.mpfr_set_si(x, this.lowerBound, mpfr_rnd_t.MPFR_RNDN);
-            computeNumberOfZeroes(nzeroes, error, x, true);
-            result.append("there are approximately ");
-            appendMPFRvalue(this.result, nzeroes, 3);
-            result.append(" zeroes (with error ");
-            appendMPFRvalue(this.result, error, 3);
-            result.append(") less than " + this.lowerBound + "\n");
+            computeNumberOfZeroes(nzeroes, error, x);
+            if (MPFR.mpfr_cmp_si(error, 0) == 0) {
+                result.append("there are ");
+                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(" zeroes");        	
+            } else {
+                result.append("there are approximately ");
+                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(" zeroes (with error ");
+                appendMPFRvalue(this.result, error, 3);
+                result.append(")");
+            }
+            result.append(" less than " + this.lowerBound + "\n");
 
             publishProgress(-1);
             zeroStr = new StringBuffer[numGramPoints + 1];
