@@ -494,22 +494,25 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     }
 
     // Compute an estimate of N(T) from Backlund
-    private static void computeNumberOfZeroes(mpfr_t nt, mpfr_t error, mpfr_t t)
-        throws MPFRException
+    private static long computeNumberOfZeroes(mpfr_t error, mpfr_t t)
+        throws MPFRException, Exception
     {
+	long n;
+	mpfr_t nt = new mpfr_t();
+	
 	// hard-code the first few estimates
-	if (MPFR.mpfr_cmp_d(t, 14.134725142) < 0) {	    
-	    MPFR.mpfr_set_si(nt, 0, mpfr_rnd_t.MPFR_RNDN);
+	if (MPFR.mpfr_cmp_d(t, 14.134725142) < 0) {
+	    n = 0;
 	    MPFR.mpfr_set_si(error, 0, mpfr_rnd_t.MPFR_RNDN);
-	    return;
-	} else if (MPFR.mpfr_cmp_d(t, 21.022039639) < 0) {	    
-	    MPFR.mpfr_set_si(nt, 1, mpfr_rnd_t.MPFR_RNDN);
+	    return n;
+	} else if (MPFR.mpfr_cmp_d(t, 21.022039639) < 0) {
+	    n = 1;
 	    MPFR.mpfr_set_si(error, 0, mpfr_rnd_t.MPFR_RNDN);
-	    return;
-	} else if (MPFR.mpfr_cmp_d(t, 25.010857580) < 0) {	    
-	    MPFR.mpfr_set_si(nt, 2, mpfr_rnd_t.MPFR_RNDN);
+	    return n;
+	} else if (MPFR.mpfr_cmp_d(t, 25.010857580) < 0) {
+	    n = 2;
 	    MPFR.mpfr_set_si(error, 0, mpfr_rnd_t.MPFR_RNDN);
-	    return;
+	    return n;
 	}
 	// find the largest Gram point less than the bound and, if the index is 126 or less,
 	// use the well known property of Gram's Law
@@ -521,9 +524,9 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	    i++;
 	}
 	if (gramBaseIndex + i <= 126) {
-	    MPFR.mpfr_set_si(nt, gramBaseIndex + i, mpfr_rnd_t.MPFR_RNDN);
+	    n = gramBaseIndex + i;
 	    MPFR.mpfr_set_si(error, 1, mpfr_rnd_t.MPFR_RNDN);
-	    return;
+	    return n;
 	}
 	// otherwise use Backlund's estimate
 	MPFR.mpfr_set(v,  t, mpfr_rnd_t.MPFR_RNDN);
@@ -541,6 +544,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	
 	MPFR.mpfr_add_d(nt, nt, 0.875, mpfr_rnd_t.MPFR_RNDN);
 
+	n = MPFR.mpfr_get_ui(nt, mpfr_rnd_t.MPFR_RNDN);
+	if (MPFR.mpfr_erangeflag_p() != 0) {
+	    throw new Exception("Overflow in computeNumberOfZeroes");
+	}
+
 	MPFR.mpfr_set(v,  t, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_log(v, v, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_mul_d(error, v, 0.137, mpfr_rnd_t.MPFR_RNDN);
@@ -548,6 +556,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_mul_d(v, v, 0.443, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_add(error, error, v, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_add_d(error, error, 4.35, mpfr_rnd_t.MPFR_RNDN);
+	return n;
     }
 
     private void appendMPFRvalue(StringBuffer sb, mpfr_t value)
@@ -595,14 +604,14 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             this.upperBound = params[1].intValue();
         }
         try {
-            if (this.lowerBound < 10) {
-                throw new Exception("lower bound must be at least 10");
+            if (this.lowerBound < 7) {
+                throw new Exception("lower bound must be at least 7");
             }
             if (this.lowerBound >= this.upperBound) {
                 throw new Exception("lower bound must be less than upper bound");
             }
             mpfr_t x = new mpfr_t();
-            mpfr_t nzeroes = new mpfr_t();
+            long nzeroes;
             mpfr_t error = new mpfr_t();
             MPFR.mpfr_set_ui(epsilon, 1, mpfr_rnd_t.MPFR_RNDN);
             MPFR.mpfr_div_2si(epsilon, epsilon, precision - 2, mpfr_rnd_t.MPFR_RNDN);
@@ -622,14 +631,14 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             initCoefficients(nterms);
             result.append("using 2*" + nterms + " terms in zeta sums\n");
             
-            computeNumberOfZeroes(nzeroes, error, x);
+            nzeroes = computeNumberOfZeroes(error, x);
             if (MPFR.mpfr_cmp_si(error, 0) == 0) {
                 result.append("there are ");
-                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(nzeroes);
                 result.append(" zeroes");        	
             } else {
                 result.append("there are approximately ");
-                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(nzeroes);
                 result.append(" zeroes (with error ");
                 appendMPFRvalue(this.result, error, 3);
                 result.append(")");
@@ -637,14 +646,14 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             result.append(" less than " + this.upperBound + "\n");
             
             MPFR.mpfr_set_si(x, this.lowerBound, mpfr_rnd_t.MPFR_RNDN);
-            computeNumberOfZeroes(nzeroes, error, x);
+            nzeroes = computeNumberOfZeroes(error, x);
             if (MPFR.mpfr_cmp_si(error, 0) == 0) {
                 result.append("there are ");
-                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(nzeroes);
                 result.append(" zeroes");        	
             } else {
                 result.append("there are approximately ");
-                appendMPFRvalue(this.result, nzeroes, 3);
+                result.append(nzeroes);
                 result.append(" zeroes (with error ");
                 appendMPFRvalue(this.result, error, 3);
                 result.append(")");
