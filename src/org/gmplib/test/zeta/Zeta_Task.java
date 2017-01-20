@@ -372,7 +372,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     
     // compute Z(t) = exp(i*theta(t)) * zeta(0.5 + i*t) for t > 0
     private static void Z(mpfr_t r, mpfr_t t, int n)
-        throws MPFRException
+        throws MPFRException, Exception
     {
 	String str;
         GMP.MutableInteger exp = new GMP.MutableInteger(0);
@@ -385,13 +385,13 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_abs(t5, t5, mpfr_rnd_t.MPFR_RNDN);
 	if (MPFR.mpfr_cmp_d(t5, 0.01) > 0) {
 	    str = MPFR.mpfr_get_str(exp, t5, 10, 8, mpfr_rnd_t.MPFR_RNDN);
-	    throw new MPFRException(MPFRException.INTERNAL_ERROR, "abs(Im(Z))=0." + str + "E" + Integer.toString(exp.value));
+	    throw new Exception("Z: abs(Im(Z))=0." + str + "E" + Integer.toString(exp.value));
 	}
 	MPFR.mpfr_set(r, t4, mpfr_rnd_t.MPFR_RNDN);
     }
     
     private void dumpZeta(double x, double y, int n)
-        throws MPFRException
+        throws MPFRException, Exception
     {
         mpfr_t zx = new mpfr_t();
         mpfr_t zy = new mpfr_t();
@@ -414,7 +414,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 
     // compute a zero of zeta(0.5 + i*t) with a0 < t < b0
     private boolean computeZetaZero(int i, mpfr_t a0, mpfr_t b0, int n)
-        throws MPFRException
+        throws MPFRException, Exception
     {
 	mpfr_t a = new mpfr_t();
 	mpfr_t b = new mpfr_t();
@@ -447,7 +447,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             MPFR.mpfr_div(d, zb, za, mpfr_rnd_t.MPFR_RNDN);
             MPFR.mpfr_d_sub(d, 1.0, d, mpfr_rnd_t.MPFR_RNDN);
             if (MPFR.mpfr_cmp_d(d, 1.0) <= 0) {
-        	throw new MPFRException(MPFRException.INTERNAL_ERROR, "1 - zb/za <= 1");        	
+        	throw new Exception("computeZetaZero: 1 - zb/za <= 1");        	
             }
             MPFR.mpfr_div(mid, mid, d, mpfr_rnd_t.MPFR_RNDN);
             MPFR.mpfr_add(mid, mid, a, mpfr_rnd_t.MPFR_RNDN);
@@ -459,10 +459,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             Z(zmid, mid, n);
             if (up == (MPFR.mpfr_cmp_ui(zmid, 0) < 0)) {
         	MPFR.mpfr_set(a, mid, mpfr_rnd_t.MPFR_RNDD);
-        	MPFR.mpfr_set(za, zmid, mpfr_rnd_t.MPFR_RNDN);
+        	MPFR.mpfr_set(za, zmid, (up ? mpfr_rnd_t.MPFR_RNDD : mpfr_rnd_t.MPFR_RNDU));
             } else {
         	MPFR.mpfr_set(b, mid, mpfr_rnd_t.MPFR_RNDU);
-        	MPFR.mpfr_set(zb, zmid, mpfr_rnd_t.MPFR_RNDN);
+        	MPFR.mpfr_set(zb, zmid, (up ? mpfr_rnd_t.MPFR_RNDU : mpfr_rnd_t.MPFR_RNDD));
             }
             MPFR.mpfr_div(d, a, b, mpfr_rnd_t.MPFR_RNDN);
             MPFR.mpfr_d_sub(d, 1.0, d, mpfr_rnd_t.MPFR_RNDN);
@@ -735,17 +735,25 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	int i = progress[0];
 	int j;
 	String str;
+	StringBuffer sb = new StringBuffer();
 	if (i == -1) {
 	    uinterface.display(this.result.toString());
 	    Log.d(TAG, this.result.toString());
 	    this.result.setLength(0);
 	} else {
+	    sb.append("[");
+	    sb.append(Integer.toString(i));
+	    sb.append("] ");
 	    j = progress[1];
 	    if (j != 0) {
-	        str = "zero[" + Integer.toString(i) + "]= 0.5 + (" + this.zeroStr[i].toString() + ")i";
+	        sb.append("0.5 + (");
+	        sb.append(this.zeroStr[i].toString());
+	        sb.append(")i");
 	    } else {
-	        str = "no zero found in " + this.zeroStr[i].toString();
+	        sb.append("no zero found in ");
+	        sb.append(this.zeroStr[i].toString());
 	    }
+	    str = sb.toString();
 	    uinterface.display(str);
 	    Log.d(TAG, str);
 	}
