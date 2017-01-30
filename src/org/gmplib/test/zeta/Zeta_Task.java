@@ -55,6 +55,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     private static mpfr_t[] logs; // logs[i] is ln(i+1)
     private static mpfr_t[] E; // coefficients for zeta_sum_part2 E[i] is e[i+1]/2^n
     private static mpfr_t epsilon; // 1 / 2^(precision-2)
+    private static int[] Bnums = new int[] {1, 1, 1,  1,  1,  5,  691,  7, 3617, 43867, 174611, 854513}; // numerators of abs(B(2n))
+    //                                      -  -  -   --  --  --  ----  -  ----  -----  ------  ------
+    private static int[] Bdens = new int[] {1, 6, 30, 42, 30, 66, 2730, 6, 510,  798,   330,    138   }; // denominators of abs(B(2n))
+    private static mpfr_t[] C; // coefficients for theta
+    private static mpfr_t[] tpowers; // used in theta
 
     // temporary variables used by mpfr_cmul, mpfr_cinvert
     private static mpfr_t c1;
@@ -160,6 +165,32 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	}
     }
     
+    private static void initThetaCoefficients()
+        throws MPFRException
+    {
+	mpfr_t c = new mpfr_t();
+	mpfr_t d = new mpfr_t();
+	int i;
+
+	C = new mpfr_t[Bnums.length - 1];
+	tpowers = new mpfr_t[Bnums.length - 1];
+
+	MPFR.mpfr_set_si(c, 1, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_div_2si(c, c, 1, mpfr_rnd_t.MPFR_RNDN);
+	for (i = 1; i < Bnums.length; i++) {
+	    C[i-1] = new mpfr_t();
+	    MPFR.mpfr_set_si(d, 1, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_div_2si(d, d, 2*i, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_sub(d, c, d, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_mul_si(d, d, Bnums[i], mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_div_si(d, d, Bdens[i], mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_div_si(d, d, 2*i - 1, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_div_si(d, d, 2*i, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_set(C[i-1], d, mpfr_rnd_t.MPFR_RNDN);
+	    tpowers[i-1] = new mpfr_t();
+	}
+    }
+    
     private static void mpfr_cmul(mpfr_t rx, mpfr_t ry, mpfr_t x1, mpfr_t y1, mpfr_t x2, mpfr_t y2, mpfr_rnd_t rnd)
         throws MPFRException
     {
@@ -183,39 +214,35 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     }
 
     // approximate Riemann-Siegel theta function for t >> 1
-    private static void theta(mpfr_t r, mpfr_t t)
+    private static void theta(mpfr_t r, mpfr_t t, int nterms)
         throws MPFRException
     {
-	thetaEvals++;
-	MPFR.mpfr_sqr(t2, t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_sqr(u, t2, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_mul(u, u, t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_set_ui(v, 31, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div_ui(v, v, 80640, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div(v, v, u, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_set(r, v, mpfr_rnd_t.MPFR_RNDN);
+	int i;
 	
-	MPFR.mpfr_set(u, t2, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_mul(u, u, t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_set_ui(v, 7, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div_ui(v, v, 5760, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div(v, v, u, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_add(r, r, v, mpfr_rnd_t.MPFR_RNDN);
-
-	MPFR.mpfr_set(u, t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_set_ui(v, 1, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div_ui(v, v, 48, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div(v, v, u, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_add(r, r, v, mpfr_rnd_t.MPFR_RNDN);
+	thetaEvals++;
+	MPFR.mpfr_sqr(t2, t, mpfr_rnd_t.MPFR_RNDN);	
+	for (i = 0; i < nterms; i++) {
+	    if (i == 0) {
+		MPFR.mpfr_set_si(tpowers[i], 1, mpfr_rnd_t.MPFR_RNDN);
+		MPFR.mpfr_div(tpowers[i], tpowers[i], t, mpfr_rnd_t.MPFR_RNDN);
+	    } else {
+		MPFR.mpfr_div(tpowers[i], tpowers[i-1], t2, mpfr_rnd_t.MPFR_RNDN);
+	    }
+	}
+	MPFR.mpfr_set_ui(r, 0, mpfr_rnd_t.MPFR_RNDN);
+	for (i = nterms - 1; i >= 0; i--) {
+	    MPFR.mpfr_mul(v, C[i], tpowers[i], mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_add(r, r, v, mpfr_rnd_t.MPFR_RNDN);
+	}
 	
 	MPFR.mpfr_sub(r, r, piby8, mpfr_rnd_t.MPFR_RNDN);
 	
 	MPFR.mpfr_set(v,  t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div_ui(v, v, 2, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_div_2si(v, v, 1, mpfr_rnd_t.MPFR_RNDN);
         MPFR.mpfr_sub(r, r, v, mpfr_rnd_t.MPFR_RNDN);
         
 	MPFR.mpfr_set(u, t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div_ui(u, u, 2, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_div_2si(u, u, 1, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_div(u, u, pi, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_log(u, u, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_mul(v, v, u, mpfr_rnd_t.MPFR_RNDN);
@@ -236,7 +263,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	mpfr_t p;
         MPFR.mpfr_neg(s, pi, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_set_si(a, lb, mpfr_rnd_t.MPFR_RNDN);
-	theta(r, a);
+	theta(r, a, 3);
 	for (;;) {
     	    if (MPFR.mpfr_cmp(r, s) < 0) {
     	        break;
@@ -249,7 +276,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	    p = new mpfr_t();
             for (;;) {
         	MPFR.mpfr_add_si(b, a, 1, mpfr_rnd_t.MPFR_RNDN);
-        	theta(r, b);
+        	theta(r, b, 3);
         	if (MPFR.mpfr_cmp(r, s) > 0) {
         	    break;
         	}
@@ -259,7 +286,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             for (;;) {
         	MPFR.mpfr_add(mid, a, b, mpfr_rnd_t.MPFR_RNDN);
         	MPFR.mpfr_div_si(mid, mid, 2, mpfr_rnd_t.MPFR_RNDN);
-        	theta(r, mid);
+        	theta(r, mid, 3);
         	if (MPFR.mpfr_cmp(r, s) < 0) {
         	    MPFR.mpfr_set(a, mid, mpfr_rnd_t.MPFR_RNDD);
         	} else {
@@ -371,13 +398,13 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     }
     
     // compute Z(t) = exp(i*theta(t)) * zeta(0.5 + i*t) for t > 0
-    private static void Z(mpfr_t r, mpfr_t t, int n)
+    private static void Z(mpfr_t r, mpfr_t t, int n, int nt)
         throws MPFRException, Exception
     {
 	String str;
         GMP.MutableInteger exp = new GMP.MutableInteger(0);
 
-        theta(t4, t);
+        theta(t4, t, nt);
 	MPFR.mpfr_sin_cos(thetay, thetax, t4, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_set_d(t4, 0.5, mpfr_rnd_t.MPFR_RNDN);
 	zeta(zetax, zetay, t4, t, n);
@@ -390,7 +417,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_set(r, t4, mpfr_rnd_t.MPFR_RNDN);
     }
     
-    private void dumpZeta(double x, double y, int n)
+    private void dumpZeta(double x, double y, int n, int nt)
         throws MPFRException, Exception
     {
         mpfr_t zx = new mpfr_t();
@@ -407,13 +434,13 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	result.append(")i");
 	
 	result.append("\t[Z]");
-	Z(zy, sy, n);
+	Z(zy, sy, n, nt);
         appendMPFRvalue(this.result, zy);
 	result.append("\n");
     }
 
     // compute a zero of zeta(0.5 + i*t) with a0 < t < b0
-    private boolean computeZetaZero(int i, mpfr_t a0, mpfr_t b0, int n)
+    private boolean computeZetaZero(int i, mpfr_t a0, mpfr_t b0, int n, int nt)
         throws MPFRException, Exception
     {
 	mpfr_t a = new mpfr_t();
@@ -427,8 +454,8 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 
 	MPFR.mpfr_set(a, a0, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_set(b, b0, mpfr_rnd_t.MPFR_RNDN);
-	Z(za, a, n);
-	Z(zb, b, n);
+	Z(za, a, n, nt);
+	Z(zb, b, n, nt);
 	if (MPFR.mpfr_cmp_ui(za, 0) < 0 && MPFR.mpfr_cmp_ui(zb, 0) > 0) {
 	    up = true;
 	} else if (MPFR.mpfr_cmp_ui(za, 0) > 0 && MPFR.mpfr_cmp_ui(zb, 0) < 0) {
@@ -456,7 +483,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
         	MPFR.mpfr_add(mid, a, b, mpfr_rnd_t.MPFR_RNDN);
         	MPFR.mpfr_div_2si(mid, mid, 1, mpfr_rnd_t.MPFR_RNDN);
             }
-            Z(zmid, mid, n);
+            Z(zmid, mid, n, nt);
             if (up == (MPFR.mpfr_cmp_ui(zmid, 0) < 0)) {
         	MPFR.mpfr_set(a, mid, mpfr_rnd_t.MPFR_RNDD);
         	MPFR.mpfr_set(za, zmid, (up ? mpfr_rnd_t.MPFR_RNDD : mpfr_rnd_t.MPFR_RNDU));
@@ -491,6 +518,26 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_mul_ui(t1, log2, 3, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_div(u, u, t1, mpfr_rnd_t.MPFR_RNDN);
 	return MPFR.mpfr_get_si(u, mpfr_rnd_t.MPFR_RNDD);
+    }
+    
+    private static int computeNumberOfThetaTerms(mpfr_t tmin)
+        throws MPFRException
+    {
+	int i;
+	int n = 0;
+	mpfr_t tp = new mpfr_t();
+	mpfr_t x = new mpfr_t();
+
+	MPFR.mpfr_sqr(t2, tmin, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_set_si(tp, 1, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_div(tp, tp, tmin, mpfr_rnd_t.MPFR_RNDN);
+	for (i = 0; i < C.length; i++) {
+	    MPFR.mpfr_mul(x, C[i], tp, mpfr_rnd_t.MPFR_RNDN);
+	    if (MPFR.mpfr_cmp(x, epsilon) < 0) break;
+	    MPFR.mpfr_div(tp, tp, t2, mpfr_rnd_t.MPFR_RNDN);
+	    n++;
+	}
+	return n;
     }
 
     // Compute an estimate of N(T) from Backlund
@@ -596,6 +643,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	int i;
         int rc = -1;
         int nterms = 20;
+        int nthetaterms = 3;
         
         if (params.length > 0) {
             this.lowerBound = params[0].intValue();
@@ -616,6 +664,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             MPFR.mpfr_set_ui(epsilon, 1, mpfr_rnd_t.MPFR_RNDN);
             MPFR.mpfr_div_2si(epsilon, epsilon, precision - 2, mpfr_rnd_t.MPFR_RNDN);
             this.digits = (int)((double)(precision - 2)*0.301029995664 /* log10(2) */);
+            initThetaCoefficients();
             initGramPoints(this.lowerBound, this.upperBound);
             result.append("Gram Points\n");
             for (i = 0; i < numGramPoints; i++) {
@@ -646,6 +695,8 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             result.append(" less than " + this.upperBound + "\n");
             
             MPFR.mpfr_set_si(x, this.lowerBound, mpfr_rnd_t.MPFR_RNDN);
+            nthetaterms = computeNumberOfThetaTerms(x);
+            result.append("using " + nthetaterms + " terms in theta\n");
             nzeroes = computeNumberOfZeroes(error, x);
             if (MPFR.mpfr_cmp_si(error, 0) == 0) {
                 result.append("there are ");
@@ -664,14 +715,14 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             zeroStr = new StringBuffer[numGramPoints + 1];
             zeroStr[0] = new StringBuffer();
             MPFR.mpfr_set_si(x, this.lowerBound, mpfr_rnd_t.MPFR_RNDN);
-    	    if (computeZetaZero(0, x, gramPoints[0], nterms)) {
+    	    if (computeZetaZero(0, x, gramPoints[0], nterms, nthetaterms)) {
     		publishProgress(0, 1);
     	    } else {
     		publishProgress(0, 0);
     	    }
             for (i = 1; i < numGramPoints; i++) {
         	zeroStr[i] = new StringBuffer();
-        	if (computeZetaZero(i, gramPoints[i - 1], gramPoints[i], nterms)) {
+        	if (computeZetaZero(i, gramPoints[i - 1], gramPoints[i], nterms, nthetaterms)) {
         	    publishProgress(i, 1);
         	} else {
         	    publishProgress(i, 0);
@@ -682,7 +733,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             }
             zeroStr[numGramPoints] = new StringBuffer();
             MPFR.mpfr_set_si(x, this.upperBound, mpfr_rnd_t.MPFR_RNDN);
-    	    if (computeZetaZero(numGramPoints, gramPoints[numGramPoints - 1], x, nterms)) {
+    	    if (computeZetaZero(numGramPoints, gramPoints[numGramPoints - 1], x, nterms, nthetaterms)) {
     		publishProgress(numGramPoints, 1);
     	    } else {
     		publishProgress(numGramPoints, 0);
