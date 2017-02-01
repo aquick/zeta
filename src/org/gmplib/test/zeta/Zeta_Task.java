@@ -130,6 +130,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	zetay = new mpfr_t();
     }
 
+    /**
+     * Initialize array of logarithms.
+     * logs[i] = ln(i+1) for i = 0,...,n-1
+     */
     private static void initLogs(int n)
         throws MPFRException
     {
@@ -142,7 +146,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	    MPFR.mpfr_log(logs[i], t, mpfr_rnd_t.MPFR_RNDN);
 	}
     }
-    
+
+    /**
+     * Pre-compute coefficients used by zeta_sum_part2.
+     * E[i] is e[i+1]/2^n, where e[k]=sum (n choose j) j=k,...,n
+     */
     private static void initCoefficients(int n)
         throws MPFRException, GMPException
     {
@@ -164,7 +172,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	    GMP.mpz_add(e, e, f);
 	}
     }
-    
+
+    /**
+     * Pre-compute coefficients used by theta.
+     * C[n]=(1/2 - 1/2^2*n)*(1/((2*n-1)*2*n)*abs(B[2*n]) where B[i] is the i-th Bernoulli number.
+     */
     private static void initThetaCoefficients()
         throws MPFRException
     {
@@ -190,7 +202,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	    tpowers[i-1] = new mpfr_t();
 	}
     }
-    
+
+    /**
+     * Multiply complex numbers x1 + i*y1 and x2 + i*y2.
+     */
     private static void mpfr_cmul(mpfr_t rx, mpfr_t ry, mpfr_t x1, mpfr_t y1, mpfr_t x2, mpfr_t y2, mpfr_rnd_t rnd)
         throws MPFRException
     {
@@ -201,7 +216,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_mul(c1, x2, y1, rnd);
 	MPFR.mpfr_add(ry, ry, c1, rnd);
     }
-    
+
+    /**
+     * Invert a complex number x + i*y.
+     */
     private static void mpfr_cinvert(mpfr_t rx, mpfr_t ry, mpfr_t x, mpfr_t y, mpfr_rnd_t rnd)
         throws MPFRException
     {
@@ -213,7 +231,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_neg(ry, ry, rnd);
     }
 
-    // approximate Riemann-Siegel theta function for t >> 1
+    /**
+     * Approximate the Riemann-Siegel theta function for t >> 1.
+     * Reference: Dissertation: NEUE HERLEITUNG UND EXPLIZITE RESTABSCHATZUNG DER RIEMANN-SIEGEL-FORMEL,
+     * Wolfgang Gabcke, Gottingen 1979, Page 2.
+     */
     private static void theta(mpfr_t r, mpfr_t t, int nterms)
         throws MPFRException
     {
@@ -248,7 +270,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_mul(v, v, u, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_add(r, r, v, mpfr_rnd_t.MPFR_RNDN);
     }
-    
+
+    /**
+     * Initialize a list of Gram points between lb and ub.
+     * Gram points are found by binary search for solutions to theta(t) = n*pi.
+     */
     private static void initGramPoints(int lb, int ub)
         throws MPFRException
     {
@@ -310,6 +336,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	numGramPoints = points.size();
     }
     
+    /**
+     * Compute alternating sum (-1)^(k-1)/k^s, k=1,...,n
+     * Used by function zeta.
+     */
     private static void zeta_sum_part1(mpfr_t rx, mpfr_t ry, mpfr_t sx, mpfr_t sy, int n)
         throws MPFRException
     {
@@ -335,6 +365,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	}
     }
     
+    /**
+     * Compute alternating sum (-1)^(k-1)*E[k-n]/k^s, k=n+1,...,2*n
+     * Used by function zeta.
+     */
     private static void zeta_sum_part2(mpfr_t rx, mpfr_t ry, mpfr_t sx, mpfr_t sy, int n)
         throws MPFRException
     {
@@ -364,7 +398,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	}
     }
 
-    // compute 1/(1 - 2^(1 - s)) where s = sx + i*sy
+    /**
+     * Compute 1/(1 - 2^(1 - s)) where s = sx + i*sy
+     * Used by function zeta.
+     */
     private static void zeta_part3(mpfr_t rx, mpfr_t ry, mpfr_t sx, mpfr_t sy)
         throws MPFRException
     {
@@ -384,7 +421,12 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	mpfr_cinvert(rx, ry, t2, t1, mpfr_rnd_t.MPFR_RNDN);
     }
     
-    // compute zeta(s) where s = sx + i*sy and sx > 0
+    /**
+     * Compute zeta(s) where s = sx + i*sy and sx > 0.
+     * Reference: Numerical evaluation of the Riemann Zeta-function, Xavier Gourdon and Pascal Sebah, July 23, 2003.
+     * Alternating series method of Proposition 2.
+     * @see http://numbers.computation.free.fr/Constants/constants.html
+     */
     private static void zeta(mpfr_t rx, mpfr_t ry, mpfr_t sx, mpfr_t sy, int n)
         throws MPFRException
     {
@@ -397,7 +439,9 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	mpfr_cmul(rx, ry, sumx, sumy, x1, y1, mpfr_rnd_t.MPFR_RNDN);
     }
     
-    // compute Z(t) = exp(i*theta(t)) * zeta(0.5 + i*t) for t > 0
+    /**
+     * Compute Z(t) = exp(i*theta(t)) * zeta(0.5 + i*t) for t > 0
+     */
     private static void Z(mpfr_t r, mpfr_t t, int n, int nt)
         throws MPFRException, Exception
     {
@@ -417,7 +461,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_set(r, t4, mpfr_rnd_t.MPFR_RNDN);
     }
     
-    private void dumpZeta(double x, double y, int n, int nt)
+    /**
+     * Append a string representation of zeta(0.5 + i*y) and Z(y) to StringBuffer result.
+     */
+    private void dumpZeta(double y, int n, int nt)
         throws MPFRException, Exception
     {
         mpfr_t zx = new mpfr_t();
@@ -439,7 +486,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	result.append("\n");
     }
 
-    // compute a zero of zeta(0.5 + i*t) with a0 < t < b0
+    /**
+     * Compute a zero of zeta(0.5 + i*t) with a0 < t < b0.
+     * If there is a sign change of Z in the interval then linear interpolation is used to locate a zero.
+     * @return true iff a zero was found in the interval.
+     */
     private boolean computeZetaZero(int i, mpfr_t a0, mpfr_t b0, int n, int nt)
         throws MPFRException, Exception
     {
@@ -503,7 +554,9 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	return true;
     }
     
-    // Compute number of terms needed in zeta sums
+    /**
+     * Compute the number of terms needed in zeta sums for the desired precision.
+     */
     private int computeNumberOfTerms(mpfr_t tmax)
         throws MPFRException
     {
@@ -519,7 +572,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_div(u, u, t1, mpfr_rnd_t.MPFR_RNDN);
 	return MPFR.mpfr_get_si(u, mpfr_rnd_t.MPFR_RNDD);
     }
-    
+
+    /**
+     * Compute the number of terms needed in the theta function for the desired precision.
+     */
     private static int computeNumberOfThetaTerms(mpfr_t tmin)
         throws MPFRException
     {
@@ -540,7 +596,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	return n;
     }
 
-    // Compute an estimate of N(T) from Backlund
+    /**
+     * Compute an estimate of N(T), the number of zeroes of zeta(0.5 + i*y) for i in [0,t]
+     * from Backlund.
+     * Reference: Riemann's Zeta Function, H. M. Edwards, Dover Publications Inc. 2001.
+     */
     private static long computeNumberOfZeroes(mpfr_t error, mpfr_t t)
         throws MPFRException, Exception
     {
@@ -606,6 +666,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	return n;
     }
 
+    /**
+     * Append a base 10 string representation of an mpfr_t to StringBuffer result.  The number of
+     * digits is based on the desired precision.
+     */
     private void appendMPFRvalue(StringBuffer sb, mpfr_t value)
         throws MPFRException
     {
@@ -622,6 +686,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	sb.append(Integer.toString(exp.value));	
     }
     
+    /**
+     * Append a base 10 string representation of an mpfr_t to StringBuffer result.  The number of
+     * digits is given by ndigits.
+     */
     private void appendMPFRvalue(StringBuffer sb, mpfr_t value, int ndigits)
         throws MPFRException
     {
@@ -637,7 +705,10 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	sb.append("E");
 	sb.append(Integer.toString(exp.value));	
     }
-	    
+
+    /**
+     * Do the work of computing the zeroes.
+     */
     protected Integer doInBackground(Integer... params)
     {
 	int i;
@@ -754,6 +825,9 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
         return Integer.valueOf(rc);
     }
     
+    /**
+     * Post-execution work.
+     */
     protected void onPostExecute(Integer result)
     {
 	try {
@@ -772,6 +846,9 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	Log.d(TAG, "number of zeta evaluations: " + zetaEvals);
     }
     
+    /**
+     * Pre-execution work.
+     */
     protected void onPreExecute()
     {
         uinterface.display(TAG);
@@ -781,6 +858,9 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
         Log.d(TAG, "precision is " + Integer.toString(this.precision) + " bits");
     }
 
+    /**
+     * Update the UI with each zero as it is found.
+     */
     protected void onProgressUpdate(Integer... progress)
     {
 	int i = progress[0];
