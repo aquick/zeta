@@ -30,6 +30,13 @@ import org.gmplib.gmpjni.MPFR.mpfr_t;
 import org.gmplib.gmpjni.MPFR.mpfr_rnd_t;
 import org.gmplib.gmpjni.MPFR.MPFRException;
 
+/**
+ * Asynchronous task to compute zeroes of the Riemann zeta function on the critical line.
+ * Zeroes are computed on the line 0.5 + i*t for t in [lowerBound, upperBound] by
+ * looking for sign changes of Z(t) = exp(i*theta(t)) * zeta(0.5 + i*t) between Gram
+ * points in the interval. 
+ *
+ */
 public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 {
 
@@ -83,6 +90,9 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     private static mpfr_t zetax;
     private static mpfr_t zetay;
 
+    /**
+     * Constructor: initialize member variables, get precision from UI, initialize constants.
+     */
     public Zeta_Task(UI ui)
         throws MPFRException, Exception
     {
