@@ -1,5 +1,5 @@
 /*****************************************************************************
- *   Copyright 2016 Andy Quick
+ *   Copyright 2016, 2017 Andy Quick
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
     private int numZeroes;
     private int lowerBound;
     private int upperBound;
+    private long elapsedTime;
     
     private static mpfr_t pi;
     private static mpfr_t piby2;
@@ -213,6 +214,11 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	}
     }
 
+    private static int min(int x, int y)
+    {
+	return (x < y ? x : y);
+    }
+    
     /**
      * Multiply complex numbers x1 + i*y1 and x2 + i*y2.
      */
@@ -285,7 +291,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
      * Initialize a list of Gram points between lb and ub.
      * Gram points are found by binary search for solutions to theta(t) = n*pi.
      */
-    private static void initGramPoints(int lb, int ub)
+    private static void initGramPoints(int lb, int ub, int nt)
         throws MPFRException
     {
 	ArrayList<mpfr_t> points = new ArrayList<mpfr_t>();
@@ -299,7 +305,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	mpfr_t p;
         MPFR.mpfr_neg(s, pi, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_set_si(a, lb, mpfr_rnd_t.MPFR_RNDN);
-	theta(r, a, 3);
+	theta(r, a, nt);
 	for (;;) {
     	    if (MPFR.mpfr_cmp(r, s) < 0) {
     	        break;
@@ -312,7 +318,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	    p = new mpfr_t();
             for (;;) {
         	MPFR.mpfr_add_si(b, a, 1, mpfr_rnd_t.MPFR_RNDN);
-        	theta(r, b, 3);
+        	theta(r, b, nt);
         	if (MPFR.mpfr_cmp(r, s) > 0) {
         	    break;
         	}
@@ -322,7 +328,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             for (;;) {
         	MPFR.mpfr_add(mid, a, b, mpfr_rnd_t.MPFR_RNDN);
         	MPFR.mpfr_div_si(mid, mid, 2, mpfr_rnd_t.MPFR_RNDN);
-        	theta(r, mid, 3);
+        	theta(r, mid, nt);
         	if (MPFR.mpfr_cmp(r, s) < 0) {
         	    MPFR.mpfr_set(a, mid, mpfr_rnd_t.MPFR_RNDD);
         	} else {
@@ -725,6 +731,8 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
         int rc = -1;
         int nterms = 20;
         int nthetaterms = 3;
+        long t1;
+        long t2;
         
         if (params.length > 0) {
             this.lowerBound = params[0].intValue();
@@ -739,14 +747,19 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             if (this.lowerBound >= this.upperBound) {
                 throw new Exception("lower bound must be less than upper bound");
             }
-            mpfr_t x = new mpfr_t();
+            mpfr_t a = new mpfr_t();
+            mpfr_t b = new mpfr_t();
             long nzeroes;
             mpfr_t error = new mpfr_t();
             MPFR.mpfr_set_ui(epsilon, 1, mpfr_rnd_t.MPFR_RNDN);
             MPFR.mpfr_div_2si(epsilon, epsilon, precision - 2, mpfr_rnd_t.MPFR_RNDN);
             this.digits = (int)((double)(precision - 2)*0.301029995664 /* log10(2) */);
+
             initThetaCoefficients();
-            initGramPoints(this.lowerBound, this.upperBound);
+            MPFR.mpfr_set_si(a, this.lowerBound, mpfr_rnd_t.MPFR_RNDN);
+            MPFR.mpfr_set_si(b, this.upperBound, mpfr_rnd_t.MPFR_RNDN);
+            nthetaterms = computeNumberOfThetaTerms(a);
+            initGramPoints(this.lowerBound, this.upperBound, min(3, nthetaterms));
             result.append("Gram Points\n");
             for (i = 0; i < numGramPoints; i++) {
         	result.append("    g(" + Integer.toString(gramBaseIndex + i) + ")=");
@@ -755,13 +768,13 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             }
             // set nterms for the zero x + iy with maximum y
             // (if nterms is changed we must call initCoefficients again)
-            MPFR.mpfr_set_si(x, this.upperBound, mpfr_rnd_t.MPFR_RNDN);
-            nterms = computeNumberOfTerms(x);
+            nterms = computeNumberOfTerms(b);
             initLogs(2*nterms);
             initCoefficients(nterms);
             result.append("using 2*" + nterms + " terms in zeta sums\n");
+            result.append("using " + nthetaterms + " terms in theta\n");
             
-            nzeroes = computeNumberOfZeroes(error, x);
+            nzeroes = computeNumberOfZeroes(error, b);
             if (MPFR.mpfr_cmp_si(error, 0) == 0) {
                 result.append("there are ");
                 result.append(nzeroes);
@@ -775,10 +788,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             }
             result.append(" less than " + this.upperBound + "\n");
             
-            MPFR.mpfr_set_si(x, this.lowerBound, mpfr_rnd_t.MPFR_RNDN);
-            nthetaterms = computeNumberOfThetaTerms(x);
-            result.append("using " + nthetaterms + " terms in theta\n");
-            nzeroes = computeNumberOfZeroes(error, x);
+            nzeroes = computeNumberOfZeroes(error, a);
             if (MPFR.mpfr_cmp_si(error, 0) == 0) {
                 result.append("there are ");
                 result.append(nzeroes);
@@ -795,8 +805,8 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
             publishProgress(-1);
             zeroStr = new StringBuffer[numGramPoints + 1];
             zeroStr[0] = new StringBuffer();
-            MPFR.mpfr_set_si(x, this.lowerBound, mpfr_rnd_t.MPFR_RNDN);
-    	    if (computeZetaZero(0, x, gramPoints[0], nterms, nthetaterms)) {
+            t1 = System.currentTimeMillis();
+    	    if (computeZetaZero(0, a, gramPoints[0], nterms, nthetaterms)) {
     		publishProgress(0, 1);
     	    } else {
     		publishProgress(0, 0);
@@ -813,12 +823,13 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
                 }
             }
             zeroStr[numGramPoints] = new StringBuffer();
-            MPFR.mpfr_set_si(x, this.upperBound, mpfr_rnd_t.MPFR_RNDN);
-    	    if (computeZetaZero(numGramPoints, gramPoints[numGramPoints - 1], x, nterms, nthetaterms)) {
+    	    if (computeZetaZero(numGramPoints, gramPoints[numGramPoints - 1], b, nterms, nthetaterms)) {
     		publishProgress(numGramPoints, 1);
     	    } else {
     		publishProgress(numGramPoints, 0);
     	    }
+    	    t2 = System.currentTimeMillis();
+    	    this.elapsedTime = t2 - t1;
         }
 	catch (MPFRException e) {
 	    result.append("MPFRException[" + e.getCode() + "] " + e.getMessage());
@@ -854,6 +865,7 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	}
 	Log.d(TAG, "number of theta evaluations: " + thetaEvals);
 	Log.d(TAG, "number of zeta evaluations: " + zetaEvals);
+	Log.d(TAG, "elapsed time: " + this.elapsedTime + " milliseconds");
     }
     
     /**
