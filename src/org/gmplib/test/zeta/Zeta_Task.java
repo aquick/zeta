@@ -246,6 +246,27 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	MPFR.mpfr_div(ry, y, c1, rnd);
 	MPFR.mpfr_neg(ry, ry, rnd);
     }
+    
+    /**
+     * Compute high-order terms of the Riemann-Siegel theta function for t >> 1.
+     * Used by function theta.  Does not initialize r.
+     */
+    private static void theta_high_order_terms(mpfr_t r, mpfr_t t)
+	        throws MPFRException
+    {
+	MPFR.mpfr_sub(r, r, piby8, mpfr_rnd_t.MPFR_RNDN);
+	
+	MPFR.mpfr_set(v,  t, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_div_2si(v, v, 1, mpfr_rnd_t.MPFR_RNDN);
+        MPFR.mpfr_sub(r, r, v, mpfr_rnd_t.MPFR_RNDN);
+        
+	MPFR.mpfr_set(u, t, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_div_2si(u, u, 1, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_div(u, u, pi, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_log(u, u, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_mul(v, v, u, mpfr_rnd_t.MPFR_RNDN);
+	MPFR.mpfr_add(r, r, v, mpfr_rnd_t.MPFR_RNDN);	
+    }
 
     /**
      * Approximate the Riemann-Siegel theta function for t >> 1.
@@ -272,19 +293,8 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	    MPFR.mpfr_mul(v, C[i], tpowers[i], mpfr_rnd_t.MPFR_RNDN);
 	    MPFR.mpfr_add(r, r, v, mpfr_rnd_t.MPFR_RNDN);
 	}
-	
-	MPFR.mpfr_sub(r, r, piby8, mpfr_rnd_t.MPFR_RNDN);
-	
-	MPFR.mpfr_set(v,  t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div_2si(v, v, 1, mpfr_rnd_t.MPFR_RNDN);
-        MPFR.mpfr_sub(r, r, v, mpfr_rnd_t.MPFR_RNDN);
-        
-	MPFR.mpfr_set(u, t, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div_2si(u, u, 1, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_div(u, u, pi, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_log(u, u, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_mul(v, v, u, mpfr_rnd_t.MPFR_RNDN);
-	MPFR.mpfr_add(r, r, v, mpfr_rnd_t.MPFR_RNDN);
+
+	theta_high_order_terms(r, t);
     }
 
     /**
@@ -599,13 +609,19 @@ public class Zeta_Task extends AsyncTask<Integer, Integer, Integer>
 	int n = 0;
 	mpfr_t tp = new mpfr_t();
 	mpfr_t x = new mpfr_t();
+	mpfr_t y = new mpfr_t();
+	mpfr_t d = new mpfr_t();
 
+	MPFR.mpfr_set_si(y, 0, mpfr_rnd_t.MPFR_RNDN);
+	theta_high_order_terms(y, tmin);
 	MPFR.mpfr_sqr(t2, tmin, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_set_si(tp, 1, mpfr_rnd_t.MPFR_RNDN);
 	MPFR.mpfr_div(tp, tp, tmin, mpfr_rnd_t.MPFR_RNDN);
 	for (i = 0; i < C.length; i++) {
 	    MPFR.mpfr_mul(x, C[i], tp, mpfr_rnd_t.MPFR_RNDN);
-	    if (MPFR.mpfr_cmp(x, epsilon) < 0) break;
+    	    MPFR.mpfr_div(d, x, y, mpfr_rnd_t.MPFR_RNDN);
+	    MPFR.mpfr_abs(d, d, mpfr_rnd_t.MPFR_RNDN);
+	    if (MPFR.mpfr_cmp(d, epsilon) < 0) break;
 	    MPFR.mpfr_div(tp, tp, t2, mpfr_rnd_t.MPFR_RNDN);
 	    n++;
 	}
