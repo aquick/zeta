@@ -102,7 +102,7 @@ public class MainActivity extends Activity implements UI {
                             }
                             catch (NumberFormatException e) {
                             }
-                            task = new Zeta_Task(MainActivity.this);
+                            task = new Zeta_Task(MainActivity.this, MainActivity.this);
                             task.execute(Integer.valueOf(lb), Integer.valueOf(ub));
                 	}
                 	catch (MPFRException e) {

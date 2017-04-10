@@ -9,5 +9,9 @@
     <string name="lb">Lower bound of imaginary part (default 10)</string>
     <string name="ub">Upper bound of imaginary part (default 50)</string>
     <string name="precision">Precision in bits (default 53)</string>
+    <string name="precision_is">precision is</string>
+    <string name="bits">bits</string>
+    <string name="version">version</string>
+    <string name="gram_note">Note: zeroes in between Gram points that don\'t obey Gram\'s Law may not be found</string>
     
 </resources>
